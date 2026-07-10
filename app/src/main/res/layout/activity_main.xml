@@ -24,7 +24,7 @@
         android:id="@+id/textSubtitulo"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Vibración intercalada en tu reloj (1 y 3 pulsos) cada 2 minutos, para mantenerte alerta en ruta."
+        android:text="Vibración intercalada en tu reloj: primero un pulso largo, después dos pulsos medios, para mantenerte alerta en ruta."
         android:textColor="@color/texto_secundario"
         android:textSize="15sp"
         android:gravity="center"
@@ -33,32 +33,92 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="12dp" />
 
-    <androidx.cardview.widget.CardView
-        android:id="@+id/cardSwitch"
-        android:layout_width="0dp"
-        android:layout_height="140dp"
-        app:cardBackgroundColor="@color/acento_apagado"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="0dp"
+    <TextView
+        android:id="@+id/textIntervaloLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Intervalo entre alertas"
+        android:textColor="@color/texto_secundario"
+        android:textSize="13sp"
         app:layout_constraintTop_toBottomOf="@id/textSubtitulo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="28dp" />
+
+    <LinearLayout
+        android:id="@+id/rowIntervalo"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:orientation="horizontal"
+        android:weightSum="3"
+        app:layout_constraintTop_toBottomOf="@id/textIntervaloLabel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="10dp">
+
+        <TextView
+            android:id="@+id/box1min"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/box_unselected"
+            android:gravity="center"
+            android:text="1 min"
+            android:textColor="@color/texto"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/box2min"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/box_selected"
+            android:gravity="center"
+            android:text="2 min"
+            android:textColor="@color/texto"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/box3min"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/box_unselected"
+            android:gravity="center"
+            android:text="3 min"
+            android:textColor="@color/texto"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnToggle"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:background="@drawable/btn_circle_off"
+        android:text="APAGADO"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:elevation="8dp"
+        app:layout_constraintTop_toBottomOf="@id/rowIntervalo"
         app:layout_constraintBottom_toTopOf="@id/textEstado"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.5"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="24dp">
-
-        <Switch
-            android:id="@+id/switchAlerta"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:scaleX="2.2"
-            android:scaleY="2.2"
-            android:thumbTint="@color/texto"
-            android:trackTint="@color/acento" />
-
-    </androidx.cardview.widget.CardView>
+        app:layout_constraintVertical_bias="0.5" />
 
     <TextView
         android:id="@+id/textEstado"

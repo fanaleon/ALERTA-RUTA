@@ -9,26 +9,36 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 
 /**
- * Servicio en foreground que cada 2 minutos dispara una "ráfaga" de notificaciones.
- * El Redmi Watch 5 no tiene SDK abierto para mandarle patrones de vibración custom,
- * pero SÍ espeja las notificaciones del teléfono (vibra cuando llega una). Por eso
- * la app manda 1 notificación (1 vibrada) o 3 notificaciones seguidas (3 vibradas),
- * alternando cada ciclo. El celular vibra también en simultáneo.
+ * Servicio en foreground que alterna dos patrones de alerta cada N minutos
+ * (configurable: 1, 2 o 3 min):
+ *   - Patrón LARGO: un pulso largo (800ms)
+ *   - Patrón DOBLE: dos pulsos medios (400ms cada uno, separados)
+ *
+ * El celular vibra con el patrón exacto usando el Vibrator nativo.
+ * El Redmi Watch 5 no tiene SDK abierto para mandarle un patrón custom, pero
+ * espeja notificaciones del teléfono (vibra cuando llega una). Por eso además
+ * mandamos 1 notificación para el pulso largo y 2 notificaciones espaciadas
+ * para el doble, así el reloj también marca la diferencia por cantidad de
+ * "buzz" aunque no pueda replicar la duración exacta.
  */
 class AlertService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
-    private var pulseCount = 1
+    private var esPulsoLargo = true
     private var notifIdCounter = 1000
+    private var intervalMillis = 2 * 60 * 1000L
 
     private val tickRunnable = object : Runnable {
         override fun run() {
-            fireAlert(pulseCount)
-            pulseCount = if (pulseCount == 1) 3 else 1
-            handler.postDelayed(this, INTERVAL_MILLIS)
+            if (esPulsoLargo) fireAlertLargo() else fireAlertDoble()
+            esPulsoLargo = !esPulsoLargo
+            handler.postDelayed(this, intervalMillis)
         }
     }
 
@@ -38,9 +48,12 @@ class AlertService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val minutos = intent?.getIntExtra(EXTRA_INTERVALO_MIN, 2) ?: 2
+        intervalMillis = minutos.coerceIn(1, 3) * 60 * 1000L
+
         val foregroundNotif = NotificationCompat.Builder(this, CHANNEL_STATUS)
             .setContentTitle("Alerta Ruta activa")
-            .setContentText("Vibrando cada 2 minutos para mantenerte alerta")
+            .setContentText("Vibrando cada $minutos min para mantenerte alerta")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -54,30 +67,55 @@ class AlertService : Service() {
 
         isRunning = true
         handler.removeCallbacks(tickRunnable)
-        pulseCount = 1
-        handler.postDelayed(tickRunnable, INTERVAL_MILLIS)
+        esPulsoLargo = true
+        handler.postDelayed(tickRunnable, intervalMillis)
         return START_STICKY
     }
 
-    private fun fireAlert(times: Int) {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        for (i in 0 until times) {
-            handler.postDelayed({
-                val id = notifIdCounter++
-                val notif = NotificationCompat.Builder(this, CHANNEL_ALERT)
-                    .setContentTitle("¡Atento!")
-                    .setContentText(if (times == 1) "Pulso simple" else "Pulso triple")
-                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setCategory(NotificationCompat.CATEGORY_ALARM)
-                    .setAutoCancel(true)
-                    .setVibrate(longArrayOf(0, 400))
-                    .build()
-                nm.notify(id, notif)
-                // La borramos a los pocos segundos para no ensuciar la barra de notificaciones
-                handler.postDelayed({ nm.cancel(id) }, 3000)
-            }, i * 700L)
+    /** Un pulso largo: 800ms seguidos, celular + 1 notificación al reloj */
+    private fun fireAlertLargo() {
+        vibrarCelularSimple(longArrayOf(0, 800))
+        postearNotificacion("Pulso largo")
+    }
+
+    /** Dos pulsos medios: 400ms + pausa + 400ms, celular + 2 notificaciones al reloj */
+    private fun fireAlertDoble() {
+        vibrarCelularSimple(longArrayOf(0, 400, 250, 400))
+        postearNotificacion("Pulso doble")
+        handler.postDelayed({ postearNotificacion("Pulso doble") }, 650L)
+    }
+
+    private fun vibrarCelularSimple(pattern: LongArray) {
+        val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vm.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(pattern, -1)
+        }
+    }
+
+    private fun postearNotificacion(etiqueta: String) {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val id = notifIdCounter++
+        val notif = NotificationCompat.Builder(this, CHANNEL_ALERT)
+            .setContentTitle("¡Atento!")
+            .setContentText(etiqueta)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setVibrate(longArrayOf(0, 400))
+            .build()
+        nm.notify(id, notif)
+        handler.postDelayed({ nm.cancel(id) }, 3000)
     }
 
     private fun createChannels() {
@@ -108,7 +146,7 @@ class AlertService : Service() {
     companion object {
         const val CHANNEL_STATUS = "status_channel"
         const val CHANNEL_ALERT = "alert_channel"
-        const val INTERVAL_MILLIS = 2 * 60 * 1000L
+        const val EXTRA_INTERVALO_MIN = "extra_intervalo_min"
         var isRunning = false
     }
 }
